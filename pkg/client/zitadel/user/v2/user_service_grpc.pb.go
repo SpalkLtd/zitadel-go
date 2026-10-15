@@ -38,6 +38,7 @@ const (
 	UserService_LockUser_FullMethodName                       = "/zitadel.user.v2.UserService/LockUser"
 	UserService_UnlockUser_FullMethodName                     = "/zitadel.user.v2.UserService/UnlockUser"
 	UserService_DeleteUser_FullMethodName                     = "/zitadel.user.v2.UserService/DeleteUser"
+	UserService_MoveUser_FullMethodName                       = "/zitadel.user.v2.UserService/MoveUser"
 	UserService_RegisterPasskey_FullMethodName                = "/zitadel.user.v2.UserService/RegisterPasskey"
 	UserService_VerifyPasskeyRegistration_FullMethodName      = "/zitadel.user.v2.UserService/VerifyPasskeyRegistration"
 	UserService_CreatePasskeyRegistrationLink_FullMethodName  = "/zitadel.user.v2.UserService/CreatePasskeyRegistrationLink"
@@ -175,6 +176,20 @@ type UserServiceClient interface {
 	//
 	// The state of the user will be changed to 'deleted'. The user will not be able to log in anymore. Endpoints requesting this user will return an error 'User not found..
 	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*DeleteUserResponse, error)
+	// Move User
+	//
+	// Move a human user to another organization of the same instance, keeping their ID.
+	// The user keeps their profile, email and phone with their verification, password, multi-factor and passwordless authenticators (TOTP, U2F, passkeys, OTP via SMS and email), identity provider links, metadata and state (locked or deactivated).
+	//
+	// The user's sessions are terminated, so they have to log in again, and their authorizations and administrator roles are removed, since they belonged to the previous organization.
+	// Their avatar is not moved.
+	// The username must be available in the target organization.
+	// Service accounts cannot be moved.
+	//
+	// Required permissions:
+	//   - `user.delete` on the user's current organization
+	//   - `user.write` on the target organization
+	MoveUser(ctx context.Context, in *MoveUserRequest, opts ...grpc.CallOption) (*MoveUserResponse, error)
 	// Start the registration of passkey for a user
 	//
 	// Start the registration of a passkey for a user, as a response the public key credential creation options are returned, which are used to verify the passkey..
@@ -561,6 +576,15 @@ func (c *userServiceClient) UnlockUser(ctx context.Context, in *UnlockUserReques
 func (c *userServiceClient) DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*DeleteUserResponse, error) {
 	out := new(DeleteUserResponse)
 	err := c.cc.Invoke(ctx, UserService_DeleteUser_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) MoveUser(ctx context.Context, in *MoveUserRequest, opts ...grpc.CallOption) (*MoveUserResponse, error) {
+	out := new(MoveUserResponse)
+	err := c.cc.Invoke(ctx, UserService_MoveUser_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1030,6 +1054,20 @@ type UserServiceServer interface {
 	//
 	// The state of the user will be changed to 'deleted'. The user will not be able to log in anymore. Endpoints requesting this user will return an error 'User not found..
 	DeleteUser(context.Context, *DeleteUserRequest) (*DeleteUserResponse, error)
+	// Move User
+	//
+	// Move a human user to another organization of the same instance, keeping their ID.
+	// The user keeps their profile, email and phone with their verification, password, multi-factor and passwordless authenticators (TOTP, U2F, passkeys, OTP via SMS and email), identity provider links, metadata and state (locked or deactivated).
+	//
+	// The user's sessions are terminated, so they have to log in again, and their authorizations and administrator roles are removed, since they belonged to the previous organization.
+	// Their avatar is not moved.
+	// The username must be available in the target organization.
+	// Service accounts cannot be moved.
+	//
+	// Required permissions:
+	//   - `user.delete` on the user's current organization
+	//   - `user.write` on the target organization
+	MoveUser(context.Context, *MoveUserRequest) (*MoveUserResponse, error)
 	// Start the registration of passkey for a user
 	//
 	// Start the registration of a passkey for a user, as a response the public key credential creation options are returned, which are used to verify the passkey..
@@ -1304,6 +1342,9 @@ func (UnimplementedUserServiceServer) UnlockUser(context.Context, *UnlockUserReq
 }
 func (UnimplementedUserServiceServer) DeleteUser(context.Context, *DeleteUserRequest) (*DeleteUserResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUser not implemented")
+}
+func (UnimplementedUserServiceServer) MoveUser(context.Context, *MoveUserRequest) (*MoveUserResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MoveUser not implemented")
 }
 func (UnimplementedUserServiceServer) RegisterPasskey(context.Context, *RegisterPasskeyRequest) (*RegisterPasskeyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterPasskey not implemented")
@@ -1779,6 +1820,24 @@ func _UserService_DeleteUser_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UserServiceServer).DeleteUser(ctx, req.(*DeleteUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_MoveUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MoveUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).MoveUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_MoveUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).MoveUser(ctx, req.(*MoveUserRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2603,6 +2662,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteUser",
 			Handler:    _UserService_DeleteUser_Handler,
+		},
+		{
+			MethodName: "MoveUser",
+			Handler:    _UserService_MoveUser_Handler,
 		},
 		{
 			MethodName: "RegisterPasskey",
